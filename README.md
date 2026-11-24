@@ -13,7 +13,7 @@ Each project has its own README explaining what it does, how it is built and, mo
 | # | Project | Course | What it shows |
 |---|---|---|---|
 | 01 | [**PowerLab — Gym Chain Manager**](01-powerlab-gym-manager) | Programming I · 2025 | Classes, encapsulation, object associations, dynamic arrays of pointers, manual memory management |
-| 02 | [**Maintenance Planning System**](02-maintenance-planning-system) | Programming II · 2026 | **Strategy pattern**, inheritance & polymorphism, hand-written **QuickSort + binary search**, custom exceptions, 30-day simulation |
+| 02 | [**Maintenance Planning System**](02-maintenance-planning-system) | Programming II · 2026 | **Strategy pattern**, inheritance & polymorphism, **QuickSort + binary search implemented from scratch**, custom exceptions, 30-day simulation |
 | 03 | [**Adventures & Dungeons**](03-adventures-and-dungeons) | Programming II · 2026 | **Layered architecture**, abstract classes, explicit ownership, data-driven world loaded from files, turn-based combat, logging & reports |
 
 ## Learning path

@@ -6,7 +6,7 @@
 
 A console simulation of an industrial maintenance department. It loads an inventory of **100 machines**, simulates **30 days** of wear and random incidents, ranks the machines by priority every day and sends the **top 3** to maintenance. It writes one report file per day.
 
-The focus was on **design patterns**, **polymorphism**, and **sorting and searching algorithms implemented by hand** (no `std::sort` or `std::find`).
+The focus was on **design patterns**, **polymorphism**, and **sorting and searching algorithms implemented from scratch** (no `std::sort` or `std::find`).
 
 ```
 --- Dia 1 ---
@@ -49,7 +49,7 @@ Each day runs the same pipeline (`Sistema::procesarDia`):
 | **Inheritance & polymorphism** | Abstract `Equipo` with pure virtual `degradar()`, implemented by `EquipoCritico` and `EquipoEstandar` |
 | **Safe downcasting** | `dynamic_cast<EquipoCritico*>` calls `calibrarMotor()` only on critical machines |
 | **Factory methods** | `fabricarEquipo()` and `fabricarIncidencia()` build the right subclass from each text line |
-| **Hand-written algorithms** | QuickSort by priority, binary search by ID (to link incidents to machines at load time) and bubble sort by ID |
+| **Algorithms implemented from scratch** | QuickSort by priority, binary search by ID (to link incidents to machines at load time) and bubble sort by ID |
 | **Custom exception hierarchy** | `SistemaException` → `ArchivoInvalido`, `FormatoInvalido` and `OperacionInconsistente` |
 | **Random generation** | `std::mt19937` with `uniform_int_distribution` |
 | **File I/O** | Data loaded from `datos.txt` and one report file written per day |
