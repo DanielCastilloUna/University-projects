@@ -1,6 +1,6 @@
 # 🎓 University Projects — C++ & Object-Oriented Design
 
-**Daniel Castillo Jiménez** · Computer Science student (Ingeniería en Sistemas) at the **Universidad Nacional de Costa Rica (UNA)**
+**Daniel Castillo Jiménez** · Information Systems Engineering student at the **Universidad Nacional de Costa Rica (UNA)**
 
 This repository collects my main course projects from **Programming I** and **Programming II**. They are console applications, so there is no GUI. Their purpose was to master the fundamentals: **logic, syntax, object-oriented design, design patterns, memory management, algorithms and software architecture**.
 
