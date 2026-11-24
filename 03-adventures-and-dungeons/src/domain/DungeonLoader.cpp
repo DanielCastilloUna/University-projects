@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 
 using std::string;
 using std::cout;
@@ -301,4 +302,10 @@ void DungeonLoader::loadNPCs(const string& filepath) {
 
     file.close();
     cout << "-> " << allNPCs.size() << " loaded NPCs.\n";
+}
+
+// --------------------------- releaseItem ---------------------------
+
+void DungeonLoader::releaseItem(Item* item) {
+    allItems.erase(std::remove(allItems.begin(), allItems.end(), item), allItems.end());
 }

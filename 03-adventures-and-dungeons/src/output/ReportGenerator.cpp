@@ -27,7 +27,9 @@ void ReportGenerator::generate(const Hero&          hero,
     file << "============================================================\n\n";
 
     file << "  RESULT : "
-         << (result == GameResult::VICTORY ? "VICTORY" : "DEFEAT") << "\n";
+         << (result == GameResult::VICTORY ? "VICTORY"
+           : result == GameResult::DEFEAT  ? "DEFEAT"
+           :                                 "QUIT (boss still alive)") << "\n";
     file << "  TURNS    : " << totalTurns << "\n\n";
 
     // ---------------------- heroe status ----------------------
@@ -70,7 +72,7 @@ void ReportGenerator::generate(const Hero&          hero,
     Enemy* boss = dungeon.getBoss();
     if (boss != nullptr) {
         file << "  Boss       : " << boss->getName()
-             << " — " << (boss->isAlive() ? "ALIVE" : "DEFEAT") << "\n";
+             << " — " << (boss->isAlive() ? "ALIVE" : "DEFEATED") << "\n";
     }
 
     file << "\n============================================================\n";

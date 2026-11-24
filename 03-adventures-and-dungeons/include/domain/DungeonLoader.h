@@ -55,6 +55,10 @@ public:
     int getStartY() const { return startY; }
 
     Enemy* getBoss() const { return boss; }
+
+    // Called when the hero picks an item up: from then on the Hero owns it
+    // (and frees it), so the loader must stop tracking it to avoid a double delete.
+    void releaseItem(Item* item);
 };
 
 

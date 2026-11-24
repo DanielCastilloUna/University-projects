@@ -207,6 +207,7 @@ void SimulationEngine::handleItems(Room& room) {
     for (Item* item : items) {
         hero.addItem(item);
         room.removeItem(item);
+        dungeon.releaseItem(item);   // ownership moves to the Hero
 
         // Weapons are automatically equipped when picked up
         if (dynamic_cast<Weapon*>(item)) {
@@ -313,5 +314,6 @@ GameResult SimulationEngine::run() {
         logger.nextTurn();
     }
 
-    return hero.isAlive() ? GameResult::VICTORY : GameResult::DEFEAT;
+    // The loop only ends here when the player pressed Q, so the boss is still alive.
+    return GameResult::QUIT;
 }

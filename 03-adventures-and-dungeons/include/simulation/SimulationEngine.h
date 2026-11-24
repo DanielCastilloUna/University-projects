@@ -20,7 +20,8 @@
 
 enum class GameResult {
     VICTORY,
-    DEFEAT
+    DEFEAT,
+    QUIT      // player left before the boss was defeated
 };
 
 class SimulationEngine {
