@@ -8,13 +8,37 @@
 #include "Rutina.h" 
 #include <iostream>
 #include <sstream>
+#include <limits>
+#include <cstdlib>
 using namespace std;
+
+// Clears the console on Windows (cls) and on Linux/macOS (clear).
+static void limpiarPantalla() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+// Reads a menu option. If the user types something that is not a number,
+// the stream is reset instead of looping forever. On end of input returns 0 (exit).
+static int leerOpcion() {
+    int opcion;
+    while (!(cin >> opcion)) {
+        if (cin.eof()) return 0;
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Opcion invalida, ingrese un numero: ";
+    }
+    return opcion;
+}
 
 
 void Sistema::menuCliente(Cliente* cliente, Sucursal* sucursal) {
     int opcion = 0;
     do {
-        system("cls");
+        limpiarPantalla();
         cout << "\n===== SUBMENU CLIENTE: " << cliente->getNombre() << " =====\n";
         cout << "1. Asignar instructor\n";
         cout << "2. Asignar rutina\n";
@@ -23,7 +47,7 @@ void Sistema::menuCliente(Cliente* cliente, Sucursal* sucursal) {
         cout << "5. Eliminar instructor por cedula\n";
         cout << "0. Volver\n";
         cout << "Seleccione una opcion: ";
-        cin >> opcion;
+        opcion = leerOpcion();
         cin.ignore();
 
         switch (opcion) {
@@ -140,7 +164,7 @@ void Sistema::menuCliente(Cliente* cliente, Sucursal* sucursal) {
 void Sistema::menuSucursal(Sucursal* sucursal) {
     int opcion = 0;
     do {
-        system("cls");
+        limpiarPantalla();
 
         cout << "\n===== MENU SUCURSAL " << sucursal->getCodigo() << " =====\n";
         cout << "1. Agregar cliente\n";
@@ -154,7 +178,7 @@ void Sistema::menuSucursal(Sucursal* sucursal) {
         cout << "9. Submenu de cliente\n";
         cout << "0. Volver al menu principal\n";
         cout << "Seleccione una opcion: ";
-        cin >> opcion;
+        opcion = leerOpcion();
         cin.ignore();
 
         switch (opcion) {
@@ -288,14 +312,10 @@ void Sistema::menuSucursal(Sucursal* sucursal) {
 
                 cin.ignore();
 
-                Medicion* m = new Medicion(fecha, peso, estatura,grasa, edadMet,musculo,grasaVisceral,cintura,cadera,pecho,muslo);
-                m->setPorcentajeGrasa(grasa);
-                m->setPorcentajeMusculo(musculo);
-                m->setCintura(cintura);
-                m->setCadera(cadera);
-                m->setPecho(pecho);
-                m->setMuslo(muslo);
-                m->setEdadMetabolica(edadMet);
+                // Argument order matches Medicion(fecha, peso, estatura, %grasa, %musculo,
+                // edadMetabolica, grasaVisceral, cintura, cadera, pecho, muslo)
+                Medicion* m = new Medicion(fecha, peso, estatura, grasa, musculo, edadMet,
+                                           grasaVisceral, cintura, cadera, pecho, muslo);
 
                 if (c->agregarMedicion(m)) {
                     cout << "Medicion registrada.\n";
@@ -404,14 +424,14 @@ string Sistema::toString() {
 void Sistema::ejecutarMenu() {
     int opcion = 0;
     do {
-        system("cls");
+        limpiarPantalla();
         cout << "\n===== MENU PRINCIPAL =====\n";
         cout << "1. Agregar sucursal\n";
         cout << "2. Listar sucursales\n";
         cout << "3. Acceder a sucursal\n";
         cout << "0. Salir\n";
         cout << "Seleccione una opcion: ";
-        cin >> opcion;
+        opcion = leerOpcion();
         cin.ignore();
 
         switch (opcion) {
