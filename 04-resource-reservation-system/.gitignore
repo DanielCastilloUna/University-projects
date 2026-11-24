@@ -1,0 +1,20 @@
+# Maven
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+.idea/workspace.xml
+
+*.pdf
+
+# Credenciales locales de MySQL (cada integrante tiene su propia clave)
+**/src/main/resources/database.properties

@@ -20,3 +20,8 @@ Release/
 reporte_dia_*.txt
 adventure_log.txt
 final_report.txt
+
+# Java / Maven (project 04)
+target/
+*.iml
+*.class
