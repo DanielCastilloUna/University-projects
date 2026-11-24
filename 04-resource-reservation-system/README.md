@@ -1,132 +1,128 @@
-# Sistema de Reservas
+# 🗓️ Resource Reservation System — Java Client-Server with MySQL
 
-EIF206 - Programación 3 (2026-II) - Proyecto #2: Sistema de Reserva de Recursos
-Universidad Nacional - Escuela de Informática
+> **Course:** EIF206 Programming III · Universidad Nacional de Costa Rica (UNA) · II Cycle 2026
+> **Team:** Daniel Castillo Jiménez, Daniela Valenciano Vargas & Dana Pamela Rojas Lázaro
+> **Stack:** Java 17 · Maven (multi-module) · MySQL · JDBC · TCP sockets · Swing (MVC) · JUnit 5 · iText · JFreeChart · Groq LLM API
 
-## Integrantes del equipo
-- Daniel Castillo Jiménez
-- Daniela Valenciano Vargas
-- Dana Pamela Rojas Lázaro
+A desktop system for booking shared resources in an organization: meeting rooms, audiovisual equipment, vehicles and laptops. An employee asks for the **categories** of resources they need for an activity, and the server automatically assigns a **free resource of each category** for that date and time slot, or explains which categories are not available.
 
-## Pasos realizados
+The application is split into **two independent programs** that talk over **TCP sockets**: a backend server that is the only part connected to the database, and a Swing desktop client. Several clients can be connected at once, and when one of them books something, **all the others get a real-time alert**.
 
-### Paso 1: migrar de XML a base de datos (MySQL con patrón DAO)
+```
+ ┌──────────── Frontend (Swing, MVC) ─────────────┐                ┌──────────────── Backend ────────────────┐
+ │                                                │   SYNC socket  │                                         │
+ │  View ─► Controller ─► Service (proxy) ────────┼──── request ──►│  Server ─► Worker (1 thread per client) │
+ │                          implements IService ◄─┼─── response ───│              │                          │
+ │                                                │                │              ▼                          │
+ │  Alerts panel ◄─ SocketMonitor (own thread) ◄──┼── ASYNC socket │  Service (real, synchronized)           │
+ │                                                │   (push only)  │              │                          │
+ └────────────────────────────────────────────────┘                │              ▼                          │
+                         ▲                                          │  DAO layer (JDBC, PreparedStatement)    │
+                         │                                          │              │                          │
+            Protocol module: entities + IService                    │              ▼                          │
+            + operation codes, shared by both sides                 │           MySQL                         │
+                                                                    └─────────────────────────────────────────┘
+```
 
-La persistencia dejó de usar un archivo XML y pasó a una base de datos MySQL llamada `Reservas`. Cada entidad tiene su `Dao` en el paquete `data`, que es la única capa que escribe SQL (con `PreparedStatement`); la clase `Database` mantiene la conexión y lee `database.properties`. El `Service` sigue siendo el único punto de acceso desde la presentación y mantiene las mismas reglas de negocio del Proyecto #1, ahora apoyado en los DAO.
+---
 
-Tablas: `Administrador`, `Funcionario`, `CategoriaRecurso`, `Recurso`, `Reserva` y las tablas puente `ReservaCategoria` (categorías pedidas) y `ReservaRecurso` (recursos asignados).
+## Features
 
-Se usa `JOIN` en las consultas que reconstruyen objetos completos (Recurso con su Categoría, Reserva con su Funcionario, y los recursos/categorías de cada Reserva) y en las estadísticas (`JOIN` + `GROUP BY`).
+- **Two roles with login:** administrators manage employees, resource categories and resources; employees create, edit and cancel their own reservations.
+- **Automatic resource assignment:** for each requested category the server looks for a resource that is not used by an active reservation overlapping that time slot. A resource is never assigned twice within the same booking.
+- **Real-time alerts:** a new reservation is pushed to every other connected client and shown in an alerts panel that is always visible.
+- **Natural-language booking:** the user can type a sentence in Spanish, such as *"reunión mañana de 9 a 11 con proyector"* ("meeting tomorrow from 9 to 11 with a projector"). The client sends it to an LLM (Groq API) to extract the activity, date, times and categories. If there is no API key, no internet or the API fails, it **falls back to a rule-based parser with regular expressions**.
+- **Calendar view** of reservations, and **PDF reports** exported with iText from the calendar, the lists and the statistics screens.
+- **Statistics with charts** (JFreeChart): resources used per category and activities per week, calculated in SQL with `JOIN` + `GROUP BY`.
+- **Integrity rules:** an employee with reservations, a category with resources or a resource assigned to reservations cannot be deleted.
 
-Restricciones de integridad: no se puede eliminar un funcionario con reservas, una categoría con recursos, ni un recurso asignado a reservas.
+## Architecture
 
-### Paso 2: dividir el proyecto en módulos
+The project is a **Maven multi-module build** with three modules:
 
-El proyecto se dividió en tres módulos Maven, siguiendo la estructura del proyecto de referencia del curso ("Personas"):
+| Module | Contents | Depends on |
+|---|---|---|
+| `Protocol` | Shared entities (`Serializable`), the `IService` contract and the socket operation codes | — |
+| `Backend` | Data layer (`Database` + one DAO per entity) and logic layer (`Service`, `Server`, `Worker`). No UI | `Protocol`, MySQL Connector/J |
+| `Frontend` | Presentation layer: one MVC package per screen (`View`, `Controller`, `Model`, `TableModel`) and the service proxy | `Protocol` only |
 
-- **Protocol**: lo que comparten Frontend y Backend (entidades y el contrato del servicio).
-- **Backend**: capas de Datos y Lógica. No tiene interfaz de usuario.
-- **Frontend**: capa de Presentación (MVC).
+Key design decisions:
 
-### Paso 3: comunicar Frontend y Backend por sockets (patrón Proxy)
+- **Proxy pattern:** the client has its own `Service` class that implements the same `IService` interface as the real one, but sends every call through the socket. The controllers never know whether they are talking to a local object or to a server.
+- **DAO pattern:** only the `data` package writes SQL, always with `PreparedStatement`. The `Service` keeps the business rules.
+- **Two sockets per client:** a synchronous one for request/response, and an asynchronous one where only the server writes, used for alerts. They are linked by a session id (UUID) issued by the server.
+- **Concurrency:** the server creates one `Worker` thread per client. All of them share one database connection, so the methods of the real `Service` are `synchronized`. On the client, alerts arrive on a background thread and are handed to Swing with `SwingUtilities.invokeLater`.
+- **Database:** 7 tables, including two many-to-many link tables (`ReservaCategoria` for the categories requested and `ReservaRecurso` for the resources assigned).
 
-El Frontend y el Backend ahora son dos programas independientes que se comunican por sockets. El Backend es el único que se conecta a MySQL; el Frontend no tiene ninguna referencia a la base de datos y ya no depende del módulo Backend (solo de Protocol).
+## What this project taught me
 
-    SistemaReservas
-    ├── pom.xml                         -> pom agregador: compila los tres módulos en orden
-    ├── reservas.sql                    -> script de la base de datos (MySQL)
-    ├── Protocol                        -> lo compartido (sin dependencias)
-    │   └── reservas/logic/
-    │       ├── Administrador, CategoriaRecurso, EstadoReserva, Funcionario,
-    │       │   Recurso, Reserva, ResultadoReserva, Rol, Usuario    entidades (Serializable)
-    │       ├── IService.java           contrato del servicio: lo implementan el Service real y el proxy
-    │       └── Protocol.java           servidor, puerto y codigo de cada operacion del socket
-    ├── Backend                         -> capas de Datos y Lógica
-    │   ├── reservas/Application.java      punto de entrada: arranca el servidor
-    │   ├── reservas/data/                 Database y un DAO por entidad (JDBC)
-    │   ├── reservas/logic/Service.java    Service real: usa los DAO
-    │   ├── reservas/logic/Server.java     ServerSocket: acepta clientes y crea un Worker por cada uno
-    │   ├── reservas/logic/Worker.java     hilo que atiende a un cliente y responde por el socket
-    │   ├── src/test, src/it               pruebas unitarias (Surefire) y de integracion (Failsafe)
-    │   └── src/main/resources/            database.properties.example (plantilla de conexion)
-    └── Frontend                        -> capa de Presentación (MVC)
-        ├── reservas/Application.java      punto de entrada (main)
-        ├── reservas/logic/Service.java    PROXY: representa al Service del Backend y envia cada
-        │                                  peticion por el socket (mismo nombre, asi la presentacion no cambia)
-        ├── reservas/logic/IAService.java  reservas por lenguaje natural (usa una View, por eso vive aqui)
-        └── reservas/presentation/         pantallas (View, Controller, Model)
+This was my first project with a **real database**, **networking** and **more than one program running at the same time**. It changed how I think about software:
 
-Dependencias entre módulos: `Protocol` <- `Backend` y `Protocol` <- `Frontend`.
+1. **Separating a system into layers and modules.** Moving from one program to three Maven modules forced us to decide what is shared (`Protocol`), what is server-only and what is client-only. The compiler started enforcing the architecture: the frontend simply cannot import the database code.
+2. **SQL and the DAO pattern.** We migrated the persistence of the previous project from an XML file to MySQL. I learned to design tables with primary keys and many-to-many relations, rebuild full objects with `JOIN`s, calculate statistics with `GROUP BY`, and protect against SQL injection with `PreparedStatement`.
+3. **Client-server communication with sockets.** I learned how to design a small protocol (an operation code, then the arguments, then a status code and the result or an error message), serialize objects over the network, and send server errors back to the client so the user sees the real reason.
+4. **Design patterns with a real purpose.** The Proxy pattern let us turn a local app into a networked one without rewriting the screens, and MVC kept each screen's logic testable without a GUI.
+5. **Threads and concurrency.** One thread per client, a separate listener thread for push notifications, `synchronized` sections around shared resources, and the rule that Swing must only be updated from its own thread.
+6. **Integrating an AI API safely.** The API key is read from an environment variable (`LLM_API_KEY`) and never written in the code, and the feature degrades gracefully to a regex parser when the API is not available.
+7. **Testing beyond unit tests.** Unit tests run with Surefire, and integration tests run with Failsafe against a real database. One integration test starts the server on a free port, connects two clients and checks that a new reservation notifies the other client but not the one that created it.
+8. **Working in a team of three with Git**, keeping secrets out of the repository: each member had their own local `database.properties`, which is ignored by Git, and only a template is committed.
 
-**Cómo funciona una petición:** el Controller llama a `Service.instance()` (el proxy) -> el proxy escribe en el socket el código de la operación y sus argumentos -> el `Worker` del Backend los lee, llama al `Service` real y responde con un código (`ERROR_NO_ERROR` o `ERROR_ERROR`) más el resultado, o el mensaje del error, que el Frontend le muestra al usuario.
+## Project structure
 
-**Varios Frontend:** el Backend crea un `Worker` (hilo) por cada Frontend conectado. Como todos comparten una sola conexión a MySQL, las operaciones del `Service` real son `synchronized` y se ejecutan de una en una.
+```
+04-resource-reservation-system/
+├── pom.xml                  Aggregator POM: builds Protocol → Backend → Frontend
+├── reservas.sql             Database script (drops and recreates the "Reservas" database, with sample data)
+├── Protocol/                Shared entities, IService, Protocol (port and operation codes)
+├── Backend/
+│   ├── src/main/java/reservas/data/    Database + DAOs (JDBC)
+│   ├── src/main/java/reservas/logic/   Service, Server, Worker
+│   ├── src/main/resources/             database.properties.example
+│   ├── src/test/                       Unit tests (JUnit 5, Surefire)
+│   └── src/it/                         Integration tests (Failsafe)
+└── Frontend/
+    ├── src/main/java/reservas/logic/          Service proxy, IAService (natural language)
+    └── src/main/java/reservas/presentation/   login, reserva, calendarizacion, actividad,
+                                               funcionarios, categoriarecurso, recurso,
+                                               estadistica, alertas (MVC per screen)
+```
 
-### Paso 4: Alertas (notificaciones asincrónicas)
+## How to run it
 
-Cuando un usuario registra una reserva nueva, el Backend se la envía a **todos los demás** Frontend conectados, que la muestran en el **Área de Alertas** (panel a la derecha, fuera de las pestañas, siempre visible).
+**Requirements:** JDK 17+, Maven 3.8+, MySQL 8, and IntelliJ IDEA (the screens use IntelliJ GUI Designer `.form` files).
 
-**Dos sockets por Frontend:**
+1. Create the database with the sample data. **Careful:** the script drops and recreates the `Reservas` database.
+   ```bash
+   mysql -u root -p < reservas.sql
+   ```
+2. Create your local connection file from the template and put your own MySQL user and password in it. This file is ignored by Git.
+   ```bash
+   cp Backend/src/main/resources/database.properties.example Backend/src/main/resources/database.properties
+   ```
+3. Open the folder in IntelliJ as a Maven project and enable **Settings → Build Tools → Maven → Runner → "Delegate IDE build/run actions to Maven"**.
+4. Run `Backend/.../reservas/Application.java` first. It should print `Servidor iniciado en el puerto 1234...`.
+5. Run `Frontend/.../reservas/Application.java`. You can start several frontends to see the alerts.
+   - To connect to a backend on another machine: `-Dreservas.server=<backend-ip>`
+   - To change the port (on both sides): `-Dreservas.port=<port>`
+6. *(Optional)* To use the LLM for natural-language booking, set the environment variable `LLM_API_KEY` with a Groq API key. Without it, the rule-based parser is used.
 
-- **SYNC**: petición-respuesta, como en el Paso 3. Al conectarse, el Frontend envía `Protocol.SYNC` y el `Server` crea su `Worker` y le responde con un id de sesión (`sid`). El proxy (`logic/Service`) guarda ese `sid` y lo expone con `getSid()`.
-- **ASYNC**: el Frontend abre una segunda conexión, envía `Protocol.ASYNC` y su `sid`, y el `Server` la une a su `Worker`. Por este socket solo escribe el Backend.
+Sample users (the password is the same as the id): administrator `admin`, employees `111`, `222`, `333`, `444`.
 
-**Flujo de una alerta:** el `Worker` atiende `RESERVA_CREATE` -> si la reserva se registró con éxito llama a `Server.deliver(reserva, this)` -> el `Server` recorre los demás `Worker` y cada uno escribe `DELIVER_RESERVA` + la reserva en su socket ASYNC -> en el Frontend, el hilo del `SocketMonitor` la lee y la pasa con `SwingUtilities.invokeLater` a `deliver_reserva` del `alertas.Controller` (que implementa `SocketListener`) -> el `Model` la agrega y la `View` se actualiza.
+**Tests** (MySQL running with `reservas.sql` loaded):
+```bash
+mvn test      # unit tests
+mvn verify    # unit + integration tests
+```
 
-**Quién escucha en el Frontend:** el hilo que escucha vive en su propia clase, `presentation/SocketMonitor`, y no dentro del proxy (el proxy solo se ocupa del canal SYNC). `presentation/SocketListener` es la interfaz con `deliver_reserva(Reserva)`. El `alertas.Controller` abre el canal con `iniciar()` (crea y arranca el `SocketMonitor` usando el `sid` del proxy) y lo cierra con `stop()`. `Application` llama a `iniciar()` al abrir la ventana principal y a `stop()` al cerrarla. El monitor no se crea en el constructor del `Controller`, para poder probar el `Controller` sin Backend.
+## Known limitations
 
-**En la pantalla:** el módulo `presentation/alertas` (View.form + View, Model, Controller y TableModel, como los demás) muestra una tabla donde cada fila tiene actividad, funcionario, fecha y horario, y dos íconos: ver el detalle en una ventana emergente y descartarla (pide confirmación). Descartar solo la quita de la lista local; no envía nada al Backend.
+These are the things I would improve next. I am writing them down because knowing a system's weak points is part of understanding it:
 
-Pruebas: `Frontend/src/test/.../alertas/AlertasTest` (unitaria: agregar con `deliver_reserva`, ver, descartar, `stop()` sin haber iniciado) y `ServerIT.unaReservaNuevaDebeNotificarseALosDemasClientesPeroNoAlQueLaCreo` (integración: dos clientes por socket).
+- **Passwords are stored in plain text.** A production version should store salted hashes (for example, bcrypt).
+- **A single shared database connection,** serialized with `synchronized`. A connection pool (such as HikariCP) and database transactions would allow real parallel requests.
+- **Java serialization over raw sockets** works for a course project, but it is not encrypted or versioned. A real system would use TLS and a format such as JSON over HTTP, or gRPC.
+- **The GUI depends on IntelliJ's form designer,** so building the client outside IntelliJ needs extra setup.
 
-## Configuración de la base de datos
+---
 
-1. Tener MySQL instalado y corriendo.
-2. Crear la base de datos y cargar los datos de ejemplo con el script de la raíz del proyecto:
-
-        mysql -u root -p < reservas.sql
-
-   (el script **borra y recrea** la base `Reservas`).
-3. Copiar `Backend/src/main/resources/database.properties.example` a `Backend/src/main/resources/database.properties` y editar ese archivo con el usuario y la clave de MySQL de cada integrante:
-
-        cp Backend/src/main/resources/database.properties.example Backend/src/main/resources/database.properties
-
-   `database.properties` está en `.gitignore` (cada integrante tiene su propia clave local) y `database.properties.example` es la plantilla, que sí se versiona.
-
-Usuarios de ejemplo cargados por el script (la clave es igual al id):
-
-| Rol | ID |
-|---|---|
-| Administrador | `admin` |
-| Funcionario | `111`, `222`, `333`, `444` |
-
-Si no existe ningún administrador en la base de datos, el sistema crea `admin`/`admin` al arrancar.
-
-## Cómo ejecutar
-
-El Backend debe arrancar **primero**, y después el Frontend (puede haber varios Frontend conectados al mismo Backend). Con MySQL corriendo, la base `Reservas` cargada y `database.properties` configurado, en IntelliJ:
-
-1. Abrir `Backend/src/main/java/reservas/Application.java` y ejecutar el `main` (flecha verde). La consola debe mostrar `Servidor iniciado en el puerto 1234...`.
-2. Abrir `Frontend/src/main/java/reservas/Application.java` y ejecutar el `main`.
-
-Si el Frontend no encuentra el Backend, muestra un mensaje de error y se cierra.
-
-**En máquinas distintas:** el Backend queda escuchando en el puerto `1234` (`Protocol.PORT`). Para que el Frontend se conecte a otra máquina, ejecutarlo con la dirección del servidor:
-
-    -Dreservas.server=IP_DEL_BACKEND
-
-Para cambiar el puerto se usa `-Dreservas.port=XXXX` (en el Backend y en el Frontend).
-
-Para importar el proyecto, abrir la carpeta raíz `SistemaReservas` y, si IntelliJ no detecta Maven, hacer clic derecho sobre el `pom.xml` de la raíz y elegir **Add as Maven Project**. Es necesario tener activada la opción **"Delegate IDE build/run actions to Maven"** en Settings > Build, Execution, Deployment > Build Tools > Maven > Runner, para evitar el error `ClassFormatError: Duplicate method $$$getFont$$$`.
-
-## Cómo correr las pruebas
-
-Las pruebas están en el módulo `Backend` y usan la base de datos, así que MySQL debe estar corriendo y con `reservas.sql` cargado. Desde la carpeta raíz:
-
-    # Solo pruebas unitarias (Surefire, *Test.java)
-    mvn test
-
-    # Pruebas unitarias + de integración (Failsafe, *IT.java)
-    mvn verify
-
-Las pruebas de integración crean sus propios datos y los eliminan al terminar. `ServerIT` levanta el servidor en un puerto libre y le habla por el socket, así que no necesita que el Backend esté corriendo aparte.
+*The source code, the user interface and the original course README ([`README.es.md`](README.es.md)) are in Spanish, the language of the course. This documentation is in English.*
