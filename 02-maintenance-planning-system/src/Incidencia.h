@@ -11,7 +11,7 @@ class Equipo; // Declaracion adelantada
 
 enum class TipoIncidencia
 {
-    LEVE, MEDIA, ALTA
+    LEVE, MEDIA, GRAVE
 };
 
 

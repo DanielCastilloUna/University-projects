@@ -226,9 +226,11 @@ void Sistema::seleccionarYMantener(vector<Equipo*>& atendidos) const
     for (int i = 0; i < limite; i++)
         atendidos.push_back(inventario[i]);
 
-    MantenimientoPreventivo prev;
-    MantenimientoCorrectivo corr;
-    MantenimientoEmergencia emer;
+    // static: each Equipo keeps a pointer to its strategy after this
+    // function returns, so the strategies must outlive the call.
+    static MantenimientoPreventivo prev;
+    static MantenimientoCorrectivo corr;
+    static MantenimientoEmergencia emer;
 
     for (Equipo* eq : atendidos) {
         if (eq->getEstado() < 30.0 || eq->getCantidadIncidencias() > 5)

@@ -28,7 +28,7 @@ class ArchivoInvalidoException : public SistemaException
 {
 public:
     explicit ArchivoInvalidoException(const string& mensaje) : SistemaException("Archivo Invalido: " + mensaje) {}
-};b
+};
 
 class FormatoInvalidoException : public SistemaException
 {

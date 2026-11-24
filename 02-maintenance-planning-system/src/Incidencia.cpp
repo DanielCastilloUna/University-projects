@@ -30,7 +30,7 @@ string Incidencia::getTipoString() const
     {
     case TipoIncidencia::LEVE : return "LEVE";
     case TipoIncidencia::MEDIA : return "MEDIA";
-    case TipoIncidencia::ALTA : return "ALTA";
+    case TipoIncidencia::GRAVE : return "GRAVE";
     default: throw FormatoInvalidoException("El tipo de incidencia es incorrecto.");
     }
 }
@@ -41,7 +41,7 @@ int Incidencia::getPeso() const
     {
         case TipoIncidencia::LEVE : return 1;
         case TipoIncidencia::MEDIA : return 2;
-        case TipoIncidencia::ALTA : return 3;
+        case TipoIncidencia::GRAVE : return 3;
         default : throw FormatoInvalidoException("El peso de incidencia es incorrecto.");
     }
 }
